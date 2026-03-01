@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>원가 마스터 학습 노트</title>
+    <style>
+        :root { --primary: #4f46e5; --bg: #f8fafc; --card: #ffffff; --text: #1e293b; --sub: #64748b; }
+        body { font-family: 'Pretendard', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 600px; }
+        header { text-align: center; margin-bottom: 25px; }
+        h1 { font-size: 1.4rem; color: var(--primary); }
+
+        /* 탭 메뉴 */
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #e2e8f0; }
+        .tab-btn { padding: 12px 20px; border: none; background: none; cursor: pointer; font-weight: 600; color: var(--sub); border-bottom: 3px solid transparent; }
+        .tab-btn.active { color: var(--primary); border-bottom: 3px solid var(--primary); }
+
+        /* 공통 섹션 */
+        .content-section { background: var(--card); padding: 25px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .hidden { display: none !important; }
+
+        /* 입력 폼 */
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 0.85rem; color: var(--sub); }
+        input, textarea { width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; box-sizing: border-box; font-size: 1rem; }
+        textarea { height: 100px; resize: none; }
+        .save-btn { width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+
+        /* 카드 스타일 */
+        .note-card { border: 1px solid #f1f5f9; padding: 18px; border-radius: 12px; margin-bottom: 15px; position: relative; }
+        .date { font-size: 0.75rem; color: var(--sub); }
+        .note-title { font-size: 1.1rem; font-weight: bold; margin: 5px 0; color: #000; }
+        .note-content { font-size: 0.95rem; line-height: 1.5; white-space: pre-wrap; margin: 10px 0; }
+        .tip-box { background: #fffbeb; padding: 10px; border-left: 4px solid #fbbf24; border-radius: 4px; font-size: 0.85rem; }
+        
+        .card-actions { margin-top: 15px; display: flex; gap: 10px; justify-content: flex-end; }
+        .btn-sm { padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; border: none; cursor: pointer; font-weight: 500; }
+        .edit-btn { background: #f1f5f9; color: var(--text); }
+        .del-btn { background: #fee2e2; color: #ef4444; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header><h1>🚀 원가 마스터 학습 노트</h1></header>
+
+    <div class="tabs">
+        <button id="tab-write" class="tab-btn active" onclick="switchTab('write')">노트 작성</button>
+        <button id="tab-list" class="tab-btn" onclick="switchTab('list')">기록 보기</button>
+    </div>
+
+    <!-- 입력 섹션 -->
+    <div id="section-write" class="content-section">
+        <input type="hidden" id="edit-index" value="-1">
+        <div class="form-group">
+            <label>문제 유형</label>
+            <input type="text" id="input-type" placeholder="예: 선입선출법 공손 50%">
+        </div>
+        <div class="form-group">
+            <label>풀이 과정 및 근거</label>
+            <textarea id="input-process" placeholder="핵심 내용을 기록하세요."></textarea>
+        </div>
+        <div class="form-group">
+            <label>나만의 꿀팁 & 실수 포인트</label>
+            <input type="text" id="input-tip" placeholder="예: 기말 < 검사면 정상공손 0원!">
+        </div>
+        <button class="save-btn" onclick="saveNote()">저장하기</button>
+    </div>
+
+    <!-- 목록 섹션 -->
+    <div id="section-list" class="content-section hidden">
+        <div id="notes-container"><!-- 데이터가 여기 쌓입니다 --></div>
+    </div>
+</div>
+
+<script>
+    let notes = JSON.parse(localStorage.getItem('studyNotes')) || [];
+
+    // 탭 전환
+    function switchTab(mode) {
+        document.getElementById('section-write').classList.toggle('hidden', mode !== 'write');
+        document.getElementById('section-list').classList.toggle('hidden', mode !== 'list');
+        document.getElementById('tab-write').classList.toggle('active', mode === 'write');
+        document.getElementById('tab-list').classList.toggle('active', mode === 'list');
+        if(mode === 'list') renderNotes();
+    }
+
+    // 저장 기능
+    function saveNote() {
+        const type = document.getElementById('input-type').value;
+        const process = document.getElementById('input-process').value;
+        const tip = document.getElementById('input-tip').value;
+        const editIndex = document.getElementById('edit-index').value;
+
+        if(!type || !process) return alert("내용을 입력해주세요!");
+
+        const newNote = {
+            type, process, tip,
+            date: new Date().toLocaleDateString()
+        };
+
+        if(editIndex === "-1") {
+            notes.unshift(newNote); // 새 글은 맨 위로
+        } else {
+            notes[editIndex] = newNote; // 수정
+            document.getElementById('edit-index').value = "-1";
+        }
+
+        localStorage.setItem('studyNotes', JSON.stringify(notes));
+        clearForm();
+        switchTab('list');
+    }
+
+    // 목록 그리기
+    function renderNotes() {
+        const container = document.getElementById('notes-container');
+        if(notes.length === 0) {
+            container.innerHTML = "<p style='text-align:center; color:#94a3b8;'>저장된 노트가 없습니다.</p>";
+            return;
+        }
+
+        container.innerHTML = notes.map((note, index) => `
+            <div class="note-card">
+                <div class="date">${note.date}</div>
+                <div class="note-title">${note.type}</div>
+                <div class="note-content">${note.process}</div>
+                ${note.tip ? `<div class="tip-box">💡 ${note.tip}</div>` : ''}
+                <div class="card-actions">
+                    <button class="btn-sm edit-btn" onclick="editNote(${index})">수정</button>
+                    <button class="btn-sm del-btn" onclick="deleteNote(${index})">삭제</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // 수정 모드
+    function editNote(index) {
+        const note = notes[index];
+        document.getElementById('input-type').value = note.type;
+        document.getElementById('input-process').value = note.process;
+        document.getElementById('input-tip').value = note.tip;
+        document.getElementById('edit-index').value = index;
+        switchTab('write');
+        document.querySelector('.save-btn').innerText = "수정 완료";
+    }
+
+    // 삭제 기능
+    function deleteNote(index) {
+        if(confirm("정말 삭제하시겠습니까?")) {
+            notes.splice(index, 1);
+            localStorage.setItem('studyNotes', JSON.stringify(notes));
+            renderNotes();
+        }
+    }
+
+    function clearForm() {
+        document.getElementById('input-type').value = "";
+        document.getElementById('input-process').value = "";
+        document.getElementById('input-tip').value = "";
+        document.querySelector('.save-btn').innerText = "저장하기";
+    }
+
+    // 초기 실행
+    renderNotes();
+</script>
+
+</body>
+</html>
